@@ -2,10 +2,11 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 
+# load OpenAI API key from .env file
 load_dotenv()
-
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# keyword mapping for each category to guide document search prompts
 KEYWORD_CATEGORIES = {
     "Infrastructure": [
         "Artificial Intelligence", "GenAI", "AI infrastructure", "cloud computing", "data centers",
@@ -60,6 +61,7 @@ KEYWORD_CATEGORIES = {
     ]
 }
 
+# plain-English definitions of each category to help GPT understand the prompt context
 CATEGORY_DEFINITIONS = {
     "Infrastructure": "Infrastructure refers to the physical and digital systems—such as computing power, data centers, broadband networks, and cloud platforms—required to develop, deploy, and scale AI technologies.",
     "Environment": "Environment includes the ecological and sustainability impacts of AI development and deployment, including emissions, green computing practices, and regulatory transparency.",
@@ -71,17 +73,24 @@ CATEGORY_DEFINITIONS = {
     "Data": "Data refers to the foundations of AI development, including data collection, processing, governance, and transparency."
 }
 
+"""
+splits the GPT output into a clean list of non-empty URLs
+"""
 def parse_output(text):
     return [url.strip() for url in text.strip().split('\n') if url.strip()]
 
+"""
+generates a search prompt and queries GPT-4.1 web search for relevant state policy PDFs
+"""
 def search_policy_links(category, state):
     keywords = KEYWORD_CATEGORIES.get(category)
     if not keywords:
         raise ValueError(f"Unsupported category: {category}")
 
     category_definition = CATEGORY_DEFINITIONS[category]
-    keyword = keywords[0]  
+    keyword = keywords[0]  # selects the first keyword from the category list for specificity
 
+    # builds natural language prompt for policy search
     prompt = (
         f"Please provide a list of policy documents from government sources in {state} relating to Artificial Intelligence, {category}, and {keyword}. "
         f"{category} is defined as follows: {category_definition}. "
@@ -89,6 +98,7 @@ def search_policy_links(category, state):
         f"or an Executive Order signed by the Governor, or a policy enacted by a state agency. Return only the URLs separated by line. Include no other text. Make sure these documents are from the last 10 years."
     )
 
+    # sends request to GPT-4.1 with embedded web search
     response = client.responses.create(
         model="gpt-4.1",
         tools=[{
@@ -103,7 +113,6 @@ def search_policy_links(category, state):
     )
 
     response_text = response.output_text.strip()
-    urls = [url.strip() for url in response_text.split('\n') if url.strip()]
+    urls = [url.strip() for url in response_text.split('\n') if url.strip()] # cleans and parses result into list
 
     return urls
-

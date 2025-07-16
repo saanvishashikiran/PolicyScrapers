@@ -4,7 +4,7 @@
 
 This folder includes:
 - Scripts that use AI readiness and digital infrastructure-related keyword prompts
-- Calls to the OpenAI API to generate mock policy documents or summaries
+- Calls to the OpenAI API to pull related policy documents
 - Tools for categorizing and saving documents in a structured format
 
 #### Requirements

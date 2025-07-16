@@ -4,12 +4,15 @@ import time
 from dotenv import load_dotenv
 import os
 
+# load API key from .env file
 load_dotenv()
-
-API_KEY = os.getenv("API_KEY")
+API_KEY = os.getenv("API_KEY") # legiscan API key from env
 BASE_URL = "https://api.legiscan.com/"
-REQUEST_DELAY = 1  
+REQUEST_DELAY = 1  # seconds between API calls to avoid rate-limiting
 
+"""
+sends a GET request to the LegiScan API and returns JSON if successful
+"""
 def get_json(url, params):
     try:
         response = requests.get(url, params=params)
@@ -24,21 +27,33 @@ def get_json(url, params):
         print(f"Request failed: {e}")
         return None
 
+"""
+fetches all legislative sessions for the given state
+"""
 def get_sessions(state):
     params = {"key": API_KEY, "op": "getSessionList", "state": state}
     data = get_json(BASE_URL, params)
     return data["sessions"] if data else []
 
+"""
+retrieves all bills for a given session
+"""
 def get_bills(session_id):
     params = {"key": API_KEY, "op": "getMasterList", "id": session_id}
     data = get_json(BASE_URL, params)
-    return list(data["masterlist"].values())[1:] if data else []
+    return list(data["masterlist"].values())[1:] if data else [] # skips the summary metadata at index 0
 
+"""
+fetches detailed info for an individual bill
+"""
 def get_bill_details(bill_id):
     params = {"key": API_KEY, "op": "getBill", "id": bill_id}
     data = get_json(BASE_URL, params)
     return data["bill"] if data else None
 
+"""
+extracts document URLs (text, amendments, supplements) from a bill object
+"""
 def extract_document_urls(bill):
     return {
         "bill_number": bill.get("bill_number"),
@@ -49,6 +64,9 @@ def extract_document_urls(bill):
         "supplements": [s.get("url") for s in bill.get("supplements", [])],
     }
 
+"""
+filters sessions by year, finds passed bills, and saves relevant document URLs
+"""
 def collect_bills(state, start_year):
     output_file = f"{state}_legiscan_documents.json"
     all_documents = []
@@ -68,19 +86,24 @@ def collect_bills(state, start_year):
         for bill in bills:
             bill_id = bill.get("bill_id")
             bill_detail = get_bill_details(bill_id)
-            if bill_detail and bill_detail.get("passed") == 1: 
+
+            if bill_detail and bill_detail.get("passed") == 1: # only include passed bills
                 doc_urls = extract_document_urls(bill_detail)
                 all_documents.append(doc_urls)
-            time.sleep(REQUEST_DELAY)
+
+            time.sleep(REQUEST_DELAY) # to avoid hitting API rate limits
 
     with open(output_file, "w") as f:
         json.dump(all_documents, f, indent=2)
 
     print(f"\nSaved {len(all_documents)} passed bill documents to {output_file}")
 
+"""
+entry point to collect documents for a given state and year
+"""
 def main():
-    state = "NY"
-    start_year = 2023
+    state = "NY" # state abbreviation for LegiScan API
+    start_year = 2023 # filter sessions starting in this year or later
     collect_bills(state, start_year)
 
 if __name__ == "__main__":
